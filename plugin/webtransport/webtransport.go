@@ -46,13 +46,16 @@ func (p *plugin) Listen(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc(p.path, p.handleWT)
 
-	p.wtServer = &wt.Server{
-		H3: &http3.Server{
-			Addr:      addr,
-			TLSConfig: p.tlsConf,
-			Handler:   mux,
-		},
+	h3srv := &http3.Server{
+		Addr:      addr,
+		TLSConfig: p.tlsConf,
+		Handler:   mux,
 	}
+	// ConfigureHTTP3Server sets EnableDatagrams and the WebTransport SETTINGS
+	// that must be advertised to clients before they can open sessions.
+	wt.ConfigureHTTP3Server(h3srv)
+
+	p.wtServer = &wt.Server{H3: h3srv}
 
 	go p.wtServer.ListenAndServe() //nolint:errcheck
 	return nil
