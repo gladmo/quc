@@ -101,6 +101,7 @@ type conn struct {
 	stream *quicgo.Stream
 	qconn  *quicgo.Conn
 	id     string
+	wmu    sync.Mutex // guards Send against concurrent callers
 }
 
 func (c *conn) ID() string           { return c.id }
@@ -109,6 +110,8 @@ func (c *conn) RemoteAddr() net.Addr { return c.qconn.RemoteAddr() }
 func (c *conn) Close() error         { return c.stream.Close() }
 
 func (c *conn) Send(data []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
 	return framing.Write(c.stream, data)
 }
 

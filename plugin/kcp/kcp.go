@@ -3,6 +3,7 @@ package kcp
 import (
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	quc "github.com/gladmo/quc"
@@ -52,8 +53,9 @@ func (p *plugin) Close() error {
 }
 
 type conn struct {
-	nc net.Conn
-	id string
+	nc  net.Conn
+	id  string
+	wmu sync.Mutex // guards Send against concurrent callers
 }
 
 func (c *conn) ID() string            { return c.id }
@@ -62,6 +64,8 @@ func (c *conn) RemoteAddr() net.Addr  { return c.nc.RemoteAddr() }
 func (c *conn) Close() error          { return c.nc.Close() }
 
 func (c *conn) Send(data []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
 	return framing.Write(c.nc, data)
 }
 

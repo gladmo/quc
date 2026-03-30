@@ -108,10 +108,11 @@ func (p *plugin) Close() error {
 }
 
 type conn struct {
-	wsConn   *gws.Conn
-	id       string
-	connDone chan struct{}
+	wsConn    *gws.Conn
+	id        string
+	connDone  chan struct{}
 	closeOnce sync.Once
+	wmu       sync.Mutex // gorilla WriteMessage is not goroutine-safe for concurrent writes
 }
 
 func (c *conn) ID() string           { return c.id }
@@ -125,6 +126,8 @@ func (c *conn) Close() error {
 }
 
 func (c *conn) Send(data []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
 	return c.wsConn.WriteMessage(gws.BinaryMessage, data)
 }
 

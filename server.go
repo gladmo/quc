@@ -3,6 +3,7 @@ package quc
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 type entry struct {
@@ -22,13 +23,14 @@ type entry struct {
 //	})
 //	srv.Start()
 type Server struct {
-	entries    []entry
-	handler    Handler
-	onConnect  func(Connection)
-	onDisconn  func(Connection)
-	closed     chan struct{}
-	wg         sync.WaitGroup
-	mu         sync.RWMutex
+	entries   []entry
+	handler   Handler
+	onConnect func(Connection)
+	onDisconn func(Connection)
+	closed    chan struct{}
+	stopOnce  sync.Once
+	wg        sync.WaitGroup
+	mu        sync.RWMutex
 }
 
 // NewServer creates a new Server.
@@ -85,8 +87,9 @@ func (s *Server) Start() error {
 }
 
 // Stop shuts down all plugins and waits for all goroutines to finish.
+// It is safe to call Stop more than once.
 func (s *Server) Stop() error {
-	close(s.closed)
+	s.stopOnce.Do(func() { close(s.closed) })
 
 	s.mu.RLock()
 	entries := make([]entry, len(s.entries))
@@ -101,6 +104,10 @@ func (s *Server) Stop() error {
 	return nil
 }
 
+// acceptBackoff is the sleep between retries when Accept returns a transient error,
+// preventing a tight busy-loop from consuming 100% CPU.
+const acceptBackoff = 5 * time.Millisecond
+
 func (s *Server) acceptLoop(p Plugin) {
 	defer s.wg.Done()
 	for {
@@ -110,6 +117,8 @@ func (s *Server) acceptLoop(p Plugin) {
 			case <-s.closed:
 				return
 			default:
+				// Transient accept error — back off briefly to avoid tight busy-loop.
+				time.Sleep(acceptBackoff)
 				continue
 			}
 		}
@@ -149,8 +158,11 @@ func (s *Server) readLoop(conn Connection) {
 		s.mu.RUnlock()
 
 		if h != nil {
-			msg := &Message{Conn: conn, Data: data}
-			go h(msg)
+			// Call the handler inline: provides natural backpressure (we do not
+			// read the next message until the current one is handled) and avoids
+			// spawning an unbounded number of goroutines under high load.
+			// Handlers that need concurrency should use their own worker pool.
+			h(&Message{Conn: conn, Data: data})
 		}
 	}
 }

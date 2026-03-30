@@ -116,6 +116,7 @@ type conn struct {
 	sess   *wt.Session
 	stream *wt.Stream
 	id     string
+	wmu    sync.Mutex // guards Send against concurrent callers
 }
 
 func (c *conn) ID() string           { return c.id }
@@ -127,6 +128,8 @@ func (c *conn) Close() error {
 }
 
 func (c *conn) Send(data []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
 	return framing.Write(c.stream, data)
 }
 
