@@ -149,7 +149,7 @@ srv.Register(&myPlugin{}, ":9999")
 ## Module Requirements
 
 ```
-go 1.21+
+go 1.24+
 github.com/gorilla/websocket v1.5.3
 github.com/quic-go/quic-go  v0.59.0
 github.com/quic-go/webtransport-go v0.10.0
