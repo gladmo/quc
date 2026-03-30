@@ -13,14 +13,13 @@ import (
 	quicgo "github.com/quic-go/quic-go"
 )
 
-var idCounter uint64
-
 type plugin struct {
 	tlsConf   *tls.Config
 	listener  *quicgo.Listener
 	connCh    chan quc.Connection
 	done      chan struct{}
 	closeOnce sync.Once
+	idCounter uint64
 }
 
 // New creates a new QUIC plugin. TLS configuration is required for QUIC.
@@ -65,7 +64,7 @@ func (p *plugin) streamLoop(qconn *quicgo.Conn) {
 		if err != nil {
 			return
 		}
-		id := atomic.AddUint64(&idCounter, 1)
+		id := atomic.AddUint64(&p.idCounter, 1)
 		c := &conn{
 			stream:     stream,
 			qconn:      qconn,

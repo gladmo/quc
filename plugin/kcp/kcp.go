@@ -11,10 +11,9 @@ import (
 	kcp "github.com/xtaci/kcp-go/v5"
 )
 
-var idCounter uint64
-
 type plugin struct {
-	listener net.Listener
+	listener  net.Listener
+	idCounter uint64
 }
 
 // New creates a new KCP plugin.
@@ -38,7 +37,7 @@ func (p *plugin) Accept() (quc.Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	id := atomic.AddUint64(&idCounter, 1)
+	id := atomic.AddUint64(&p.idCounter, 1)
 	return &conn{
 		nc: nc,
 		id: fmt.Sprintf("kcp-%d", id),

@@ -12,18 +12,17 @@ import (
 	gws "github.com/gorilla/websocket"
 )
 
-var idCounter uint64
-
-var upgrader = gws.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
 type plugin struct {
 	path       string
 	connCh     chan quc.Connection
 	done       chan struct{}
 	closeOnce  sync.Once
 	httpServer *http.Server
+	idCounter  uint64
+}
+
+var upgrader = gws.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 // New creates a new WebSocket plugin. The optional path argument sets the HTTP
@@ -70,7 +69,7 @@ func (p *plugin) handleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	id := atomic.AddUint64(&idCounter, 1)
+	id := atomic.AddUint64(&p.idCounter, 1)
 	c := &conn{
 		wsConn:   wsConn,
 		id:       fmt.Sprintf("ws-%d", id),

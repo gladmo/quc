@@ -15,8 +15,6 @@ import (
 	wt "github.com/quic-go/webtransport-go"
 )
 
-var idCounter uint64
-
 type plugin struct {
 	tlsConf   *tls.Config
 	path      string
@@ -24,6 +22,7 @@ type plugin struct {
 	connCh    chan quc.Connection
 	done      chan struct{}
 	closeOnce sync.Once
+	idCounter uint64
 }
 
 // New creates a new WebTransport plugin. The optional path argument sets the
@@ -73,7 +72,7 @@ func (p *plugin) handleWT(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := atomic.AddUint64(&idCounter, 1)
+	id := atomic.AddUint64(&p.idCounter, 1)
 	c := &conn{
 		sess:   sess,
 		stream: stream,

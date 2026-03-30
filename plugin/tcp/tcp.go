@@ -10,10 +10,9 @@ import (
 	"github.com/gladmo/quc/internal/framing"
 )
 
-var idCounter uint64
-
 type plugin struct {
-	listener net.Listener
+	listener  net.Listener
+	idCounter uint64
 }
 
 // New creates a new TCP plugin.
@@ -37,7 +36,7 @@ func (p *plugin) Accept() (quc.Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	id := atomic.AddUint64(&idCounter, 1)
+	id := atomic.AddUint64(&p.idCounter, 1)
 	return &conn{
 		nc: nc,
 		id: fmt.Sprintf("tcp-%d", id),
