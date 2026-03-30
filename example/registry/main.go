@@ -9,11 +9,13 @@
 //
 //	go run ./example/registry
 //
-// Then exercise any of the five client examples (they connect to different ports
-// from example/multi, so both can run at the same time):
+// Then exercise any of the five client examples (same ports as example/multi):
 //
-//	# set the server address per client, e.g. for TCP:
-//	go run ./example/client/tcp  # hardcoded to :9001 — edit addr or run separate client
+//	go run ./example/client/tcp
+//	go run ./example/client/websocket
+//	go run ./example/client/quic
+//	go run ./example/client/kcp
+//	go run ./example/client/webtransport
 package main
 
 import (
@@ -185,20 +187,19 @@ func main() {
 
 	srv := quc.NewServer()
 
-	// Ports :9011-:9015 let this example run alongside example/multi (:9001-:9005).
-	if err := srv.Register(tcp.New(), ":9011"); err != nil {
+	if err := srv.Register(tcp.New(), ":9001"); err != nil {
 		log.Fatalf("register tcp: %v", err)
 	}
-	if err := srv.Register(websocket.New("/ws"), ":9012"); err != nil {
+	if err := srv.Register(websocket.New("/ws"), ":9002"); err != nil {
 		log.Fatalf("register websocket: %v", err)
 	}
-	if err := srv.Register(quic.New(tlsConf), ":9013"); err != nil {
+	if err := srv.Register(quic.New(tlsConf), ":9003"); err != nil {
 		log.Fatalf("register quic: %v", err)
 	}
-	if err := srv.Register(kcp.New(), ":9014"); err != nil {
+	if err := srv.Register(kcp.New(), ":9004"); err != nil {
 		log.Fatalf("register kcp: %v", err)
 	}
-	if err := srv.Register(webtransport.New(tlsConf, "/wt"), ":9015"); err != nil {
+	if err := srv.Register(webtransport.New(tlsConf, "/wt"), ":9005"); err != nil {
 		log.Fatalf("register webtransport: %v", err)
 	}
 
@@ -227,11 +228,11 @@ func main() {
 	}
 
 	log.Println("registry server started:")
-	log.Println("  TCP          :9011")
-	log.Println("  WebSocket    :9012/ws")
-	log.Println("  QUIC         :9013")
-	log.Println("  KCP          :9014")
-	log.Println("  WebTransport :9015/wt")
+	log.Println("  TCP          :9001")
+	log.Println("  WebSocket    :9002/ws")
+	log.Println("  QUIC         :9003")
+	log.Println("  KCP          :9004")
+	log.Println("  WebTransport :9005/wt")
 	log.Printf("  idle timeout %s (sweep every %s)", heartbeatTimeout, heartbeatInterval)
 
 	sig := make(chan os.Signal, 1)
