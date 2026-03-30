@@ -68,11 +68,34 @@ func main() {
 
 ## Multi-Protocol Example
 
+### Server
+
 See [`example/multi/main.go`](example/multi/main.go) for a complete server that listens on TCP, WebSocket, QUIC, KCP, and WebTransport simultaneously.
 
 ```bash
 go run ./example/multi
 ```
+
+### Clients
+
+Each protocol has a matching client example under `example/client/`. Start the server first, then run any client in a separate terminal:
+
+| Protocol | Command | Address |
+|---|---|---|
+| TCP | `go run ./example/client/tcp` | `localhost:9001` |
+| WebSocket | `go run ./example/client/websocket` | `ws://localhost:9002/ws` |
+| QUIC | `go run ./example/client/quic` | `localhost:9003` |
+| KCP | `go run ./example/client/kcp` | `localhost:9004` |
+| WebTransport | `go run ./example/client/webtransport` | `https://localhost:9005/wt` |
+
+Every client sends a single message and prints the echoed response:
+
+```
+2009/11/10 23:00:00 sent:  hello from tcp client
+2009/11/10 23:00:00 echo:  hello from tcp client
+```
+
+> **Note:** the QUIC and WebTransport clients use `InsecureSkipVerify: true` to accept the server's self-signed certificate. Replace this with proper certificate validation in production.
 
 ## Architecture
 
