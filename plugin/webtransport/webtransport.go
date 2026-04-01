@@ -1,11 +1,11 @@
 package webtransport
 
 import (
-	"context"
 	"crypto/tls"
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -76,7 +76,7 @@ func (p *plugin) handleWT(w http.ResponseWriter, r *http.Request) {
 	c := &conn{
 		sess:   sess,
 		stream: stream,
-		id:     fmt.Sprintf("wt-%d", id),
+		id:     "wt-" + strconv.FormatUint(id, 10),
 	}
 
 	select {
@@ -99,7 +99,7 @@ func (p *plugin) Accept() (quc.Connection, error) {
 	case c := <-p.connCh:
 		return c, nil
 	case <-p.done:
-		return nil, fmt.Errorf("webtransport: plugin closed")
+		return nil, errors.New("webtransport: plugin closed")
 	}
 }
 
@@ -139,6 +139,3 @@ func (c *conn) Recv() ([]byte, error) {
 func (c *conn) RecvInto(buf *[]byte) ([]byte, error) {
 	return framing.ReadInto(c.stream, buf)
 }
-
-// Ensure context is used to satisfy import.
-var _ = context.Background

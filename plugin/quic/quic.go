@@ -5,8 +5,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	quc "github.com/gladmo/quc"
 	"github.com/gladmo/quc/internal/framing"
@@ -51,6 +53,8 @@ func (p *plugin) listenLoop() {
 			case <-p.done:
 				return
 			default:
+				// Transient accept error — back off to avoid tight busy-loop.
+				time.Sleep(5 * time.Millisecond)
 				continue
 			}
 		}
@@ -66,9 +70,9 @@ func (p *plugin) streamLoop(qconn *quicgo.Conn) {
 		}
 		id := atomic.AddUint64(&p.idCounter, 1)
 		c := &conn{
-			stream:     stream,
-			qconn:      qconn,
-			id:         fmt.Sprintf("quic-%d", id),
+			stream: stream,
+			qconn:  qconn,
+			id:     "quic-" + strconv.FormatUint(id, 10),
 		}
 		select {
 		case p.connCh <- c:

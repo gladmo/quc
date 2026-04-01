@@ -14,6 +14,10 @@ type Message struct {
 	//
 	// For connections that do not implement BufferedReceiver (e.g. WebSocket),
 	// Data is an independently allocated slice that is safe to retain.
+	//
+	// The Message pointer itself is also reused across messages by the server's
+	// read loop. Both msg and msg.Data are only valid for the duration of the
+	// Handler call.
 	Data []byte
 }
 

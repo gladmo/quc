@@ -2,9 +2,10 @@ package websocket
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -72,7 +73,7 @@ func (p *plugin) handleWS(w http.ResponseWriter, r *http.Request) {
 	id := atomic.AddUint64(&p.idCounter, 1)
 	c := &conn{
 		wsConn:   wsConn,
-		id:       fmt.Sprintf("ws-%d", id),
+		id:       "ws-" + strconv.FormatUint(id, 10),
 		connDone: make(chan struct{}),
 	}
 	select {
@@ -94,7 +95,7 @@ func (p *plugin) Accept() (quc.Connection, error) {
 	case c := <-p.connCh:
 		return c, nil
 	case <-p.done:
-		return nil, fmt.Errorf("websocket: plugin closed")
+		return nil, errors.New("websocket: plugin closed")
 	}
 }
 

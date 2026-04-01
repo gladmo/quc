@@ -3,6 +3,7 @@ package quc
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,13 +25,13 @@ type entry struct {
 //	srv.Start()
 type Server struct {
 	entries   []entry
-	handler   Handler
-	onConnect func(Connection)
-	onDisconn func(Connection)
+	handler   atomic.Pointer[Handler]       // lock-free read in hot path
+	onConnect atomic.Pointer[func(Connection)] // lock-free read per new connection
+	onDisconn atomic.Pointer[func(Connection)] // lock-free read per disconnect
 	closed    chan struct{}
 	stopOnce  sync.Once
 	wg        sync.WaitGroup
-	mu        sync.RWMutex
+	mu        sync.RWMutex // guards entries only
 }
 
 // NewServer creates a new Server.
@@ -49,24 +50,21 @@ func (s *Server) Register(plugin Plugin, addr string) error {
 }
 
 // OnMessage sets the handler called for every incoming message.
+// It is safe to call after Start; the new handler takes effect immediately.
 func (s *Server) OnMessage(h Handler) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.handler = h
+	s.handler.Store(&h)
 }
 
 // OnConnect sets the callback invoked when a new connection is established.
+// It is safe to call after Start; the new callback takes effect immediately.
 func (s *Server) OnConnect(h func(Connection)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.onConnect = h
+	s.onConnect.Store(&h)
 }
 
 // OnDisconnect sets the callback invoked when a connection is closed.
+// It is safe to call after Start; the new callback takes effect immediately.
 func (s *Server) OnDisconnect(h func(Connection)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.onDisconn = h
+	s.onDisconn.Store(&h)
 }
 
 // Start begins listening on all registered plugins.
@@ -123,11 +121,8 @@ func (s *Server) acceptLoop(p Plugin) {
 			}
 		}
 
-		s.mu.RLock()
-		onConn := s.onConnect
-		s.mu.RUnlock()
-		if onConn != nil {
-			onConn(conn)
+		if hp := s.onConnect.Load(); hp != nil {
+			(*hp)(conn)
 		}
 
 		s.wg.Add(1)
@@ -139,11 +134,8 @@ func (s *Server) readLoop(conn Connection) {
 	defer s.wg.Done()
 	defer func() {
 		conn.Close()
-		s.mu.RLock()
-		onDisconn := s.onDisconn
-		s.mu.RUnlock()
-		if onDisconn != nil {
-			onDisconn(conn)
+		if hp := s.onDisconn.Load(); hp != nil {
+			(*hp)(conn)
 		}
 	}()
 
@@ -154,6 +146,12 @@ func (s *Server) readLoop(conn Connection) {
 	// overwrite on the next iteration after the handler returns.
 	br, hasBR := conn.(BufferedReceiver)
 	var recvBuf []byte
+
+	// msg is reused across iterations: one allocation per connection instead of
+	// one per message. msg.Data is updated each iteration before the handler is
+	// called. Both msg and msg.Data are only valid for the duration of the handler
+	// call — handlers that need to retain them past their return must copy.
+	msg := &Message{Conn: conn}
 
 	for {
 		var (
@@ -169,16 +167,13 @@ func (s *Server) readLoop(conn Connection) {
 			return
 		}
 
-		s.mu.RLock()
-		h := s.handler
-		s.mu.RUnlock()
-
-		if h != nil {
+		if hp := s.handler.Load(); hp != nil {
 			// Call the handler inline: provides natural backpressure (we do not
 			// read the next message until the current one is handled) and avoids
 			// spawning an unbounded number of goroutines under high load.
 			// Handlers that need concurrency should use their own worker pool.
-			h(&Message{Conn: conn, Data: data})
+			msg.Data = data
+			(*hp)(msg)
 		}
 	}
 }

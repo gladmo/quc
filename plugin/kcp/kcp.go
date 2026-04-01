@@ -1,8 +1,8 @@
 package kcp
 
 import (
-	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -40,7 +40,7 @@ func (p *plugin) Accept() (quc.Connection, error) {
 	id := atomic.AddUint64(&p.idCounter, 1)
 	return &conn{
 		nc: nc,
-		id: fmt.Sprintf("kcp-%d", id),
+		id: "kcp-" + strconv.FormatUint(id, 10),
 	}, nil
 }
 
