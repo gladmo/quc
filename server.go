@@ -147,8 +147,24 @@ func (s *Server) readLoop(conn Connection) {
 		}
 	}()
 
+	// Use the zero-copy buffered receive path when the connection supports it.
+	// The per-connection buffer is grown as needed and reused across messages,
+	// avoiding one heap allocation per received message.
+	// Because h(msg) is called synchronously (inline), the buffer is safe to
+	// overwrite on the next iteration after the handler returns.
+	br, hasBR := conn.(BufferedReceiver)
+	var recvBuf []byte
+
 	for {
-		data, err := conn.Recv()
+		var (
+			data []byte
+			err  error
+		)
+		if hasBR {
+			data, err = br.RecvInto(&recvBuf)
+		} else {
+			data, err = conn.Recv()
+		}
 		if err != nil {
 			return
 		}

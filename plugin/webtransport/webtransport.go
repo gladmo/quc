@@ -136,5 +136,9 @@ func (c *conn) Recv() ([]byte, error) {
 	return framing.Read(c.stream)
 }
 
+func (c *conn) RecvInto(buf *[]byte) ([]byte, error) {
+	return framing.ReadInto(c.stream, buf)
+}
+
 // Ensure context is used to satisfy import.
 var _ = context.Background

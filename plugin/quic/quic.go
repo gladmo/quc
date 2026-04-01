@@ -117,3 +117,7 @@ func (c *conn) Send(data []byte) error {
 func (c *conn) Recv() ([]byte, error) {
 	return framing.Read(c.stream)
 }
+
+func (c *conn) RecvInto(buf *[]byte) ([]byte, error) {
+	return framing.ReadInto(c.stream, buf)
+}

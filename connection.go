@@ -18,3 +18,19 @@ type Connection interface {
 	// Close closes the connection.
 	Close() error
 }
+
+// BufferedReceiver is an optional interface that Connection implementations
+// may satisfy to enable zero-copy message receive.
+//
+// RecvInto reads the next message into buf, growing the backing array when
+// needed. It returns the sub-slice that contains the message payload; that
+// slice aliases buf and is valid only until the next RecvInto call on the
+// same buffer. Callers must copy the data if they need to retain it past the
+// Handler's return.
+//
+// The Server automatically uses RecvInto (with a per-connection buffer) when a
+// Connection implements BufferedReceiver, avoiding one heap allocation per
+// received message.
+type BufferedReceiver interface {
+	RecvInto(buf *[]byte) ([]byte, error)
+}

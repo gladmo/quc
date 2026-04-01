@@ -26,6 +26,18 @@ func Write(w io.Writer, data []byte) error {
 
 // Read reads one length-prefixed message from r.
 func Read(r io.Reader) ([]byte, error) {
+	var buf []byte
+	return ReadInto(r, &buf)
+}
+
+// ReadInto reads one length-prefixed message from r into buf, growing buf as
+// needed. It returns the sub-slice of buf that holds the message payload.
+//
+// Callers that invoke ReadInto in a loop can pass the same *buf across
+// iterations to amortise allocations: the backing array is reused whenever it
+// is large enough. The returned slice aliases buf, so its contents are only
+// valid until the next ReadInto call that uses the same buffer.
+func ReadInto(r io.Reader, buf *[]byte) ([]byte, error) {
 	var hdr [4]byte
 	if _, err := io.ReadFull(r, hdr[:]); err != nil {
 		return nil, err
@@ -34,9 +46,12 @@ func Read(r io.Reader) ([]byte, error) {
 	if length > MaxMessageSize {
 		return nil, fmt.Errorf("framing: message too large (%d bytes, max %d)", length, MaxMessageSize)
 	}
-	buf := make([]byte, length)
-	if _, err := io.ReadFull(r, buf); err != nil {
+	if uint32(cap(*buf)) < length {
+		*buf = make([]byte, length)
+	}
+	*buf = (*buf)[:length]
+	if _, err := io.ReadFull(r, *buf); err != nil {
 		return nil, err
 	}
-	return buf, nil
+	return *buf, nil
 }
